@@ -6,16 +6,19 @@ import android.util.Log;
 import org.json.JSONObject;
 
 import java.io.BufferedInputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Scanner;
+import java.util.zip.InflaterInputStream;
 
 public class ApiUtil {
     public static final String BASE_API_URL = "https://api.deezer.com/search";
     public static final String QUERY_PARAMETER = "q";
+    private static final String TAG = "ApiUtil";
 
     public static URL BuildUrl(String title) {
         URL url = null;
@@ -35,18 +38,19 @@ public class ApiUtil {
 
         String json = null;
         try {
-        InputStream inStrm = new BufferedInputStream(urlConnection.getInputStream());
+        InputStream inStrm = new DataInputStream(urlConnection.getInputStream());
+//        InputStream inStrm = new InflaterInputStream(urlConnection.getInputStream());
         Scanner scanner = new Scanner(inStrm);
-        if (scanner.hasNext()) {
+        while (scanner.hasNext() == true) {
             json = scanner.next();
-        } else {
-            return null;
         }
         } catch (Exception e) {
             Log.d("Error while scanning data:", e.toString());
         } finally {
             urlConnection.disconnect();
         }
+        Log.d(TAG, "GetJson: Saving API response.");
+        String debugJson = json;
         return json;
     }
 
