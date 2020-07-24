@@ -64,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
         call.enqueue(new Callback<TrackResponse>() {
             @Override
             public void onResponse(Call<TrackResponse> call, Response<TrackResponse> response) {
+                Log.d(TAG, "onResponse: API data retrieved");
                 List<Track> tracks = response.body().getData();
                 mPbLoading.setVisibility(View.INVISIBLE);
                 if (tracks != null)
