@@ -9,10 +9,10 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.View;
 import android.widget.ProgressBar;
+import android.widget.SearchView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.SearchView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -38,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar mPbLoading;
     private RecyclerView recyclerView = null;
     private TextView mtvError;
-    private String mSearchQuery = null;
+    private String mSearchQuery;
 
     //Used by retrofit
     private Call<TrackResponse> mcall;
@@ -55,13 +55,13 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setHasFixedSize(true);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // Get the intent, verify the action and get the query
-//        Intent intent = getIntent();
-//        if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
-//            mSearchQuery = intent.getStringExtra(SearchManager.QUERY);
-//        }
-//
-//            connectAndGetApiData();
+//         Get the intent, verify the action and get the query
+        Intent intent = getIntent();
+        if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
+            mSearchQuery = intent.getStringExtra(SearchManager.QUERY);
+        }
+
+            connectAndGetApiData();
         }
 
     @Override
@@ -72,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
         SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
         SearchView searchView = (SearchView) menu.findItem(R.id.app_bar_search).getActionView();
         searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
-        searchView.setIconifiedByDefault(false);
+        searchView.setIconifiedByDefault(true);
 
         return true;
     }
@@ -88,7 +88,7 @@ public class MainActivity extends AppCompatActivity {
 
             DeezerApiService deezerApiService = retrofit.create(DeezerApiService.class);
 
-            if (mSearchQuery.isEmpty()) {
+            if (mSearchQuery == null) {
                 mcall = deezerApiService.findTrack("The Chainsmokers");
             } else {
                 mcall = deezerApiService.findTrack(mSearchQuery);
