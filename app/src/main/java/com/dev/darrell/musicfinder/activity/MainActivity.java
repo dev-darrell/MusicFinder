@@ -1,23 +1,28 @@
 package com.dev.darrell.musicfinder.activity;
 
-import androidx.appcompat.app.AppCompatActivity;
-
-import android.os.AsyncTask;
+import android.app.SearchManager;
+import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-//import com.dev.darrell.musicfinder.api.ApiUtil;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import com.dev.darrell.musicfinder.R;
+import com.dev.darrell.musicfinder.adapter.TrackAdapter;
 import com.dev.darrell.musicfinder.api.DeezerApiService;
 import com.dev.darrell.musicfinder.model.Track;
 import com.dev.darrell.musicfinder.model.TrackResponse;
 
-import java.io.IOException;
-import java.net.URL;
-import java.util.List;
+import java.util.ArrayList;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -30,91 +35,83 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     public static final String BASE_API_URL = "https://api.deezer.com";
     public static Retrofit retrofit = null;
-
-    private TextView mTvResult;
     private ProgressBar mPbLoading;
+    private RecyclerView recyclerView = null;
+    private TextView mtvError;
+    private String mSearchQuery = null;
+
+    //Used by retrofit
+    private Call<TrackResponse> mcall;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         mPbLoading = findViewById(R.id.pb_loading);
-        mTvResult = findViewById(R.id.tv_result);
+        mtvError = findViewById(R.id.tv_error);
 
+        recyclerView = findViewById(R.id.track_recycler_view);
+        recyclerView.setHasFixedSize(true);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        connectAndGetApiData();
-//        String searchItem = "The Chainsmokers";
-//        URL url = ApiUtil.BuildUrl(searchItem);
-//        new getMusic().execute(url);
-    }
-
-    private void connectAndGetApiData() {
-        mPbLoading.setVisibility(View.VISIBLE);
-        if(retrofit == null) {
-            retrofit = new Retrofit.Builder()
-                    .baseUrl(BASE_API_URL)
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .build();
+        // Get the intent, verify the action and get the query
+        Intent intent = getIntent();
+        if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
+            mSearchQuery = intent.getStringExtra(SearchManager.QUERY);
         }
 
-        DeezerApiService deezerApiService = retrofit.create(DeezerApiService.class);
+            connectAndGetApiData();
+        }
 
-        Call<TrackResponse> call = deezerApiService.findTrack("The Chainsmokers");
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_activity_menu, menu);
 
-        call.enqueue(new Callback<TrackResponse>() {
-            @Override
-            public void onResponse(Call<TrackResponse> call, Response<TrackResponse> response) {
-                Log.d(TAG, "onResponse: API data retrieved");
-                List<Track> tracks = response.body().getData();
-                mPbLoading.setVisibility(View.INVISIBLE);
-                if (tracks != null)
-                    mTvResult.setText((CharSequence) tracks);
-            }
+        SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
+        SearchView searchView = (SearchView) menu.findItem(R.id.app_bar_search).getActionView();
+        searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
+        searchView.setIconifiedByDefault(false);
 
-            @Override
-            public void onFailure(Call<TrackResponse> call, Throwable t) {
-                Log.e(TAG, t.toString());
-                mPbLoading.setVisibility(View.INVISIBLE);
-                mTvResult.setText("An error has occurred. Check Logs");
-            }
-        });
+        return true;
     }
 
+    private void connectAndGetApiData () {
+            mPbLoading.setVisibility(View.VISIBLE);
+            if (retrofit == null) {
+                retrofit = new Retrofit.Builder()
+                        .baseUrl(BASE_API_URL)
+                        .addConverterFactory(GsonConverterFactory.create())
+                        .build();
+            }
 
-//    public class getMusic extends AsyncTask<URL, Void, String> {
-//
-//        @Override
-//        protected String doInBackground(URL... urls) {
-//            URL currentUrl = urls[0];
-//            String result = null;
-//            try {
-//                result = ApiUtil.GetJson(currentUrl);
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//            return result;
-//        }
-//
-//        @Override
-//        protected void onPreExecute() {
-//            mPbLoading.setVisibility(View.VISIBLE);
-//            mTvResult.setVisibility(View.INVISIBLE);
-//            super.onPreExecute();
-//        }
-//
-//        @Override
-//        protected void onPostExecute(String result) {
-//            TextView tvError = findViewById(R.id.tv_error);
-//            mPbLoading.setVisibility(View.INVISIBLE);
-//            if (result == null || result.isEmpty()) {
-//                tvError.setText("Error retrieving music list from Deezer");
-//                tvError.setVisibility(View.VISIBLE);
-//            } else {
-//                mTvResult.setText(result);
-//                mTvResult.setVisibility(View.VISIBLE);
-//            }
-//
-//            super.onPostExecute(result);
-//        }
-//    }
-}
+            DeezerApiService deezerApiService = retrofit.create(DeezerApiService.class);
+
+            if (mSearchQuery.isEmpty()) {
+                mcall = deezerApiService.findTrack("The Chainsmokers");
+            } else {
+                mcall = deezerApiService.findTrack(mSearchQuery);
+            }
+            mcall.enqueue(new Callback<TrackResponse>() {
+                @Override
+                public void onResponse(Call<TrackResponse> call, Response<TrackResponse> response) {
+                    Log.d(TAG, "onResponse: API data retrieved");
+                    mPbLoading.setVisibility(View.INVISIBLE);
+
+                    ArrayList<Track> tracks = (ArrayList<Track>) response.body().getData();
+                    recyclerView.setAdapter(new TrackAdapter(tracks));
+                    Log.d(TAG, "Number of songs retrieved: " + tracks.size());
+                }
+
+                @Override
+                public void onFailure(Call<TrackResponse> call, Throwable t) {
+                    Log.d(TAG, "onFailure: API call failed");
+                    Log.e(TAG, t.toString());
+                    mPbLoading.setVisibility(View.INVISIBLE);
+                    mtvError.setText("An error occurred while retrieving data.");
+                }
+            });
+        }
+
+    }
