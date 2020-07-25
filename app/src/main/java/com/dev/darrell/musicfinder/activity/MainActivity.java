@@ -56,12 +56,12 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         // Get the intent, verify the action and get the query
-        Intent intent = getIntent();
-        if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
-            mSearchQuery = intent.getStringExtra(SearchManager.QUERY);
-        }
-
-            connectAndGetApiData();
+//        Intent intent = getIntent();
+//        if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
+//            mSearchQuery = intent.getStringExtra(SearchManager.QUERY);
+//        }
+//
+//            connectAndGetApiData();
         }
 
     @Override
