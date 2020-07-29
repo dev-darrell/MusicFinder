@@ -3,4 +3,9 @@
     <string name="track_cover_image">Track cover image</string>
     <string name="search">Search</string>
     <string name="search_hint">Search songs and artists</string>
+    <string name="clear_search_history">Clear Search History</string>
+    <string name="clear_history_dialog_message">Clear all search history?</string>
+    <string name="dialog_positive_message">Yes</string>
+    <string name="dialog_negative_message">No</string>
+    <string name="img_album_art">Album art</string>
 </resources>

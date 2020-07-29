@@ -1,18 +1,27 @@
 package com.dev.darrell.musicfinder.activity;
 
+import android.app.Dialog;
 import android.app.SearchManager;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.provider.SearchRecentSuggestions;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.SearchView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.FragmentManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -42,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
 
     //Used by retrofit
     private Call<TrackResponse> mcall;
+    public static SearchRecentSuggestions msuggestions;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,10 +69,13 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = getIntent();
         if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
             mSearchQuery = intent.getStringExtra(SearchManager.QUERY);
+            msuggestions = new SearchRecentSuggestions(this,
+                    MySearchSuggestionProvider.AUTHORITY, MySearchSuggestionProvider.MODE);
+            msuggestions.saveRecentQuery(mSearchQuery, null);
         }
 
-            connectAndGetApiData();
-        }
+        connectAndGetApiData();
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -74,44 +87,79 @@ public class MainActivity extends AppCompatActivity {
         searchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
         searchView.setIconifiedByDefault(true);
 
+        final FragmentManager fragmentManager = getSupportFragmentManager();
+
+        MenuItem clearSearchHistory = menu.findItem(R.id.clr_prev_search);
+        clearSearchHistory.setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
+            @Override
+            public boolean onMenuItemClick(MenuItem menuItem) {
+                ClearSearchHistory clearHistory = new ClearSearchHistory();
+                clearHistory.show(fragmentManager, "clearSearch");
+                return true;
+            }
+        });
         return true;
     }
 
-    private void connectAndGetApiData () {
-            mPbLoading.setVisibility(View.VISIBLE);
-            if (retrofit == null) {
-                retrofit = new Retrofit.Builder()
-                        .baseUrl(BASE_API_URL)
-                        .addConverterFactory(GsonConverterFactory.create())
-                        .build();
-            }
-
-            DeezerApiService deezerApiService = retrofit.create(DeezerApiService.class);
-
-            if (mSearchQuery == null) {
-                mcall = deezerApiService.findTrack("The Chainsmokers");
-            } else {
-                mcall = deezerApiService.findTrack(mSearchQuery);
-            }
-            mcall.enqueue(new Callback<TrackResponse>() {
-                @Override
-                public void onResponse(Call<TrackResponse> call, Response<TrackResponse> response) {
-                    Log.d(TAG, "onResponse: API data retrieved");
-                    mPbLoading.setVisibility(View.INVISIBLE);
-
-                    ArrayList<Track> tracks = (ArrayList<Track>) response.body().getData();
-                    recyclerView.setAdapter(new TrackAdapter(tracks));
-                    Log.d(TAG, "Number of songs retrieved: " + tracks.size());
-                }
-
-                @Override
-                public void onFailure(Call<TrackResponse> call, Throwable t) {
-                    Log.d(TAG, "onFailure: API call failed");
-                    Log.e(TAG, t.toString());
-                    mPbLoading.setVisibility(View.INVISIBLE);
-                    mtvError.setText("An error occurred while retrieving data.");
-                }
-            });
+    private void connectAndGetApiData() {
+        mPbLoading.setVisibility(View.VISIBLE);
+        if (retrofit == null) {
+            retrofit = new Retrofit.Builder()
+                    .baseUrl(BASE_API_URL)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build();
         }
 
+        DeezerApiService deezerApiService = retrofit.create(DeezerApiService.class);
+
+        if (mSearchQuery == null) {
+            mcall = deezerApiService.findTrack("The Chainsmokers");
+        } else {
+            mcall = deezerApiService.findTrack(mSearchQuery);
+        }
+        mcall.enqueue(new Callback<TrackResponse>() {
+            @Override
+            public void onResponse(Call<TrackResponse> call, Response<TrackResponse> response) {
+                Log.d(TAG, "onResponse: API data retrieved");
+                mPbLoading.setVisibility(View.INVISIBLE);
+
+                ArrayList<Track> tracks = (ArrayList<Track>) response.body().getData();
+                recyclerView.setAdapter(new TrackAdapter(tracks));
+                Log.d(TAG, "Number of songs retrieved: " + tracks.size());
+            }
+
+            @Override
+            public void onFailure(Call<TrackResponse> call, Throwable t) {
+                Log.d(TAG, "onFailure: API call failed");
+                Log.e(TAG, t.toString());
+                mPbLoading.setVisibility(View.INVISIBLE);
+                mtvError.setText("An error occurred while retrieving data.");
+            }
+        });
     }
+
+    public static class ClearSearchHistory extends DialogFragment {
+        @NonNull
+        @Override
+        public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+            builder.setMessage(R.string.clear_history_dialog_message)
+                    .setPositiveButton(R.string.dialog_positive_message,
+                            new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
+                                    msuggestions.clearHistory();
+                                }
+                            })
+                    .setNegativeButton(R.string.dialog_negative_message,
+                            new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
+                                    Log.d(TAG, "Dialog Negative Button: User canceled clear search request");
+                                }
+                            });
+            return builder.create();
+        }
+    }
+}

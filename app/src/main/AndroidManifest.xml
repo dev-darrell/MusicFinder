@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?exml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.dev.darrell.musicfinder">
 
@@ -19,9 +19,14 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <meta-data android:name="android.app.searchable"
-                android:resource="@xml/searchable"/>
+            <meta-data
+                android:name="android.app.searchable"
+                android:resource="@xml/searchable" />
         </activity>
+
+        <provider
+            android:name=".activity.MySearchSuggestionProvider"
+            android:authorities="com.dev.darrell.musicfinder.activity.MySearchSuggestionProvider" />
     </application>
 
 </manifest>
