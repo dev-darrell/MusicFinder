@@ -39,7 +39,6 @@ public class TrackAdapter extends RecyclerView.Adapter<TrackAdapter.ViewHolder> 
 
         Picasso.get().load(image_url)
                 .placeholder(R.drawable.ic_stat_name)
-                .fit()
                 .into(holder.trackCover);
     }
 

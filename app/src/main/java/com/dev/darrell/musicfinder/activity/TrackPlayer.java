@@ -9,6 +9,7 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -19,7 +20,8 @@ import com.squareup.picasso.Picasso;
 
 import java.io.IOException;
 
-public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPreparedListener {
+public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPreparedListener,
+        MediaPlayer.OnErrorListener, MediaPlayer.OnCompletionListener {
     public static final String TRACK_EXTRA = "com.dev.darrell.musicfinder.activity.TrackPlayer";
     private static final String TAG = "TrackPlayer";
     private String mtrackTitle;
@@ -33,6 +35,8 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
     private FloatingActionButton mPauseNdPlay;
     private FloatingActionButton mLoop;
     private FloatingActionButton mStopPlayback;
+    private MediaPlayer mMediaPlayer;
+    private boolean mMediaPlayerPrepped;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,7 +59,6 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
         mStopPlayback = findViewById(R.id.fab_stop_playback);
 
         LoadLayoutItems();
-        createMediaPlayer();
     }
 
     private void LoadLayoutItems() {
@@ -67,33 +70,48 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
                 .placeholder(R.drawable.sharp_headset_black_18dp)
                 .error(R.drawable.sharp_headset_black_18dp)
                 .into(mIvAlbumArt);
+
+        createMediaPlayer();
     }
 
     private void createMediaPlayer() {
-        // TODO: Debug media not playing and complete mediaPlayer implementation (looping, stopping, clearing resources.)
+        // TODO: Set seekbar up to show playback progress and seek through songs.
         Log.d(TAG, "createMediaPlayer: creating media player instance");
-        MediaPlayer mediaPlayer = new MediaPlayer();
-        mediaPlayer.setAudioAttributes(
+        mMediaPlayer = new MediaPlayer();
+        mMediaPlayer.setAudioAttributes(
                 new AudioAttributes.Builder()
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .setUsage(AudioAttributes.USAGE_MEDIA)
                         .build()
         );
         try {
-            mediaPlayer.setDataSource(mTrackAudio);
+            mMediaPlayer.setDataSource(mTrackAudio);
         } catch (IOException e) {
             Log.d(TAG, "createMediaPlayer: Data source error =" + e.toString());
             e.printStackTrace();
         }
-        mediaPlayer.prepareAsync();
+
+        mMediaPlayer.setOnErrorListener(this);
+        mMediaPlayer.setOnPreparedListener(this);
+        mMediaPlayer.setOnCompletionListener(this);
+
+        mMediaPlayer.prepareAsync();
+//        mMediaPlayerPrepped = true;
     }
 
     @Override
     public void onPrepared(final MediaPlayer mediaPlayer) {
+        mMediaPlayerPrepped = true;
+        Log.d(TAG, "onPrepared: Media player in prepared state");
+        Toast toast = Toast.makeText(this, "MediaPlayer Prepared", Toast.LENGTH_LONG);
+        toast.show();
+
         mPauseNdPlay.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (!mediaPlayer.isPlaying()) {
+                if (!mMediaPlayerPrepped) {
+                    mediaPlayer.prepareAsync();
+                } else if (!mediaPlayer.isPlaying()) {
                     mediaPlayer.start();
                     mPauseNdPlay.setImageResource(R.drawable.ic_pause_media);
                 } else {
@@ -102,5 +120,43 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
                 }
             }
         });
+
+        mStopPlayback.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mMediaPlayerPrepped = false;
+                mediaPlayer.stop();
+                mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
+            }
+        });
+
+        mLoop.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (!mediaPlayer.isLooping()) {
+                    mediaPlayer.setLooping(true);
+                    mLoop.setFocusable(true);
+                } else {
+                    mediaPlayer.setLooping(false);
+                    mLoop.setSelected(false);
+                }
+            }
+        });
+    }
+
+    @Override
+    public boolean onError(MediaPlayer mediaPlayer, int i, int i1) {
+        return false;
+    }
+
+    @Override
+    public void onBackPressed() {
+        mMediaPlayer.release();
+        super.onBackPressed();
+    }
+
+    @Override
+    public void onCompletion(MediaPlayer mediaPlayer) {
+        mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
     }
 }
