@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
@@ -35,8 +36,12 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
     private FloatingActionButton mPauseNdPlay;
     private FloatingActionButton mLoop;
     private FloatingActionButton mStopPlayback;
-    private MediaPlayer mMediaPlayer;
+    private MediaPlayer mMediaPlayer = null;
     private boolean mMediaPlayerPrepped;
+    private TextView mCurrentPosition;
+    private TextView mTrackDuration;
+    private int mFileDuration;
+    private Handler mHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +62,8 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
         mPauseNdPlay = findViewById(R.id.fab_pause_play);
         mLoop = findViewById(R.id.fab_loop);
         mStopPlayback = findViewById(R.id.fab_stop_playback);
+        mCurrentPosition = findViewById(R.id.track_current_position);
+        mTrackDuration = findViewById(R.id.track_duration);
 
         LoadLayoutItems();
     }
@@ -72,6 +79,27 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
                 .into(mIvAlbumArt);
 
         createMediaPlayer();
+        mSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (mMediaPlayer != null && fromUser) {
+                    mMediaPlayer.seekTo(progress);
+                    seekBar.setProgress(progress);
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+//                if (mMediaPlayer != null && mMediaPlayer.isPlaying()) {
+//                    mMediaPlayer.seekTo(seekBar.getProgress());
+//                }
+            }
+        });
     }
 
     private void createMediaPlayer() {
@@ -96,37 +124,49 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
         mMediaPlayer.setOnCompletionListener(this);
 
         mMediaPlayer.prepareAsync();
-//        mMediaPlayerPrepped = true;
     }
 
     @Override
     public void onPrepared(final MediaPlayer mediaPlayer) {
-        mMediaPlayerPrepped = true;
         Log.d(TAG, "onPrepared: Media player in prepared state");
+
         Toast toast = Toast.makeText(this, "MediaPlayer Prepared", Toast.LENGTH_LONG);
         toast.show();
+        mMediaPlayerPrepped = true;
+        mFileDuration = mMediaPlayer.getDuration();
+        getDurationTimer();
+        mSeekBar.setMax(mFileDuration);
 
+        mediaPlayer.start();
+        mPauseNdPlay.setImageResource(R.drawable.ic_pause_media);
+
+        mHandler = new Handler();
+        this.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (mMediaPlayer != null) {
+                    int currentPosition = mMediaPlayer.getCurrentPosition();
+                    mSeekBar.setProgress(currentPosition);
+
+                    final long minutes = (currentPosition / 1000) / 60;
+                    final int seconds = (int) ((currentPosition / 1000) % 60);
+                    mCurrentPosition.setText(minutes + ":" + seconds);
+                }
+                mHandler.postDelayed(this, 1000);
+            }
+        });
         mPauseNdPlay.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (!mMediaPlayerPrepped) {
-                    mediaPlayer.prepareAsync();
-                } else if (!mediaPlayer.isPlaying()) {
-                    mediaPlayer.start();
-                    mPauseNdPlay.setImageResource(R.drawable.ic_pause_media);
-                } else {
+                if (mediaPlayer.isPlaying()) {
                     mediaPlayer.pause();
                     mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
+                } else if (mMediaPlayer == null) {
+                    createMediaPlayer();
+                } else {
+                    mediaPlayer.start();
+                    mPauseNdPlay.setImageResource(R.drawable.ic_pause_media);
                 }
-            }
-        });
-
-        mStopPlayback.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                mMediaPlayerPrepped = false;
-                mediaPlayer.stop();
-                mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
             }
         });
 
@@ -142,6 +182,30 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
                 }
             }
         });
+
+        mStopPlayback.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
+                mediaPlayer.stop();
+            }
+        });
+    }
+    // end of onPrepare method
+
+    public void getDurationTimer() {
+        final long minutes = (mFileDuration / 1000) / 60;
+        final int seconds = (int) ((mFileDuration / 1000) % 60);
+        mTrackDuration.setText(minutes + ":" + seconds);
+    }
+
+//    public void getCurrentTimer(){
+//
+//    }
+
+    @Override
+    public void onCompletion(MediaPlayer mediaPlayer) {
+        mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
     }
 
     @Override
@@ -152,11 +216,8 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
     @Override
     public void onBackPressed() {
         mMediaPlayer.release();
+        mMediaPlayer = null;
         super.onBackPressed();
     }
 
-    @Override
-    public void onCompletion(MediaPlayer mediaPlayer) {
-        mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
-    }
 }

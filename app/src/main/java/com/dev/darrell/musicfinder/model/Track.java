@@ -112,7 +112,7 @@ public class Track implements Parcelable {
     }
 
     public String getAlbumCover() {
-        return album.getCover();
+        return album.getCoverMedium();
     }
 
     public void setAlbumCover(Album album) {

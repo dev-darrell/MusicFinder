@@ -113,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
         DeezerApiService deezerApiService = retrofit.create(DeezerApiService.class);
 
         if (mSearchQuery == null) {
-            mcall = deezerApiService.findTrack("The Chainsmokers");
+            mcall = deezerApiService.fromTopCharts(20);
         } else {
             mcall = deezerApiService.findTrack(mSearchQuery);
         }
@@ -122,10 +122,13 @@ public class MainActivity extends AppCompatActivity {
             public void onResponse(Call<TrackResponse> call, Response<TrackResponse> response) {
                 Log.d(TAG, "onResponse: API data retrieved");
                 mPbLoading.setVisibility(View.INVISIBLE);
-
-                ArrayList<Track> tracks = (ArrayList<Track>) response.body().getData();
-                recyclerView.setAdapter(new TrackAdapter(tracks));
-                Log.d(TAG, "Number of songs retrieved: " + tracks.size());
+                if (!response.body().getData().isEmpty()) {
+                    ArrayList<Track> tracks = (ArrayList<Track>) response.body().getData();
+                    recyclerView.setAdapter(new TrackAdapter(tracks));
+                    Log.d(TAG, "Number of songs retrieved: " + tracks.size());
+                } else {
+                    mtvError.setText(R.string.track_not_in_database);
+                }
             }
 
             @Override
@@ -133,7 +136,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, "onFailure: API call failed");
                 Log.e(TAG, t.toString());
                 mPbLoading.setVisibility(View.INVISIBLE);
-                mtvError.setText("An error occurred while retrieving data.");
+                mtvError.setText(R.string.error_getting_data);
             }
         });
     }

@@ -10,4 +10,7 @@ public interface DeezerApiService {
 
     @GET("/search")
     Call<TrackResponse> findTrack(@Query("q") String query);
+
+    @GET("/chart/0/tracks")
+    Call<TrackResponse> fromTopCharts(@Query("limit") int limit);
 }
