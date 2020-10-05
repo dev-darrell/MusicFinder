@@ -1,31 +1,40 @@
 package com.dev.darrell.musicfinder.activity;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.dev.darrell.musicfinder.R;
 import com.dev.darrell.musicfinder.model.Track;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.squareup.picasso.Picasso;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Objects;
+
+import static com.dev.darrell.musicfinder.activity.MusicPlayingNotification.KEY_LOOP;
+import static com.dev.darrell.musicfinder.activity.MusicPlayingNotification.KEY_PAUSE_PLAY;
+import static com.dev.darrell.musicfinder.activity.MusicPlayingNotification.KEY_STOP;
 
 public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPreparedListener,
         MediaPlayer.OnErrorListener, MediaPlayer.OnCompletionListener {
     public static final String TRACK_EXTRA = "com.dev.darrell.musicfinder.activity.TrackPlayer";
     private static final String TAG = "TrackPlayer";
-    private String mtrackTitle;
+    private String mTrackTitle;
     private String mArtistName;
     private String mAlbumCover;
     private String mTrackAudio;
@@ -33,15 +42,24 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
     private TextView mTvTrackName;
     private ImageView mIvAlbumArt;
     private SeekBar mSeekBar;
-    private FloatingActionButton mPauseNdPlay;
-    private FloatingActionButton mLoop;
-    private FloatingActionButton mStopPlayback;
-    private MediaPlayer mMediaPlayer = null;
-    private boolean mMediaPlayerPrepped;
+    private ImageButton mPauseNdPlay;
+    private ImageButton mLoop;
+    private ImageButton mStopPlayback;
     private TextView mCurrentPosition;
     private TextView mTrackDuration;
     private int mFileDuration;
     private Handler mHandler;
+    private int mCurrentTrackId;
+    private MediaPlayer mMediaPlayer;
+    private ProgressBar mLoadProgressBar;
+    private MediaPlayer mPreparedMediaPlayer;
+    private BroadcastReceiver mBroadcastReceiver;
+
+    @Override
+    protected void onDestroy() {
+        unregisterReceiver(mBroadcastReceiver);
+        super.onDestroy();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,28 +67,73 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
         setContentView(R.layout.activity_track_player);
 
         Intent intent = getIntent();
-        Track currentTrack = intent.getParcelableExtra(TRACK_EXTRA);
+        mCurrentTrackId = intent.getIntExtra(TRACK_EXTRA, -1);
 
-        mtrackTitle = currentTrack.getTitle();
-        mArtistName = currentTrack.getArtist();
-        mAlbumCover = currentTrack.getAlbumCover();
-        mTrackAudio = currentTrack.getPreviewLink().toString();
+        Track currentTrack = getCurrentTrack();
+
+        if (currentTrack != null) {
+            mTrackTitle = currentTrack.getTitle();
+            mArtistName = currentTrack.getArtist();
+            mAlbumCover = currentTrack.getAlbumCover();
+            mTrackAudio = currentTrack.getPreviewLink().toString();
+        }
 
         mTvTrackName = findViewById(R.id.tv_track_playing);
         mIvAlbumArt = findViewById(R.id.img_album_playing);
         mSeekBar = findViewById(R.id.duration_seekbar);
-        mPauseNdPlay = findViewById(R.id.fab_pause_play);
-        mLoop = findViewById(R.id.fab_loop);
-        mStopPlayback = findViewById(R.id.fab_stop_playback);
+        mPauseNdPlay = findViewById(R.id.btn_play_pause);
+        mLoop = findViewById(R.id.btn_loop);
+        mStopPlayback = findViewById(R.id.btn_stop);
+        mLoadProgressBar = findViewById(R.id.load_progress_bar);
         mCurrentPosition = findViewById(R.id.track_current_position);
         mTrackDuration = findViewById(R.id.track_duration);
 
+        registerBroadcastReceiver();
         LoadLayoutItems();
+    }
+
+    private void registerBroadcastReceiver() {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(KEY_LOOP);
+        filter.addAction(KEY_PAUSE_PLAY);
+        filter.addAction(KEY_STOP);
+
+        mBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                switch (Objects.requireNonNull(intent.getAction())) {
+                    case KEY_LOOP:
+                        loopPlayback();
+                        break;
+                    case KEY_PAUSE_PLAY:
+                        pauseOrPlayTrack();
+                        break;
+                    case KEY_STOP:
+                        stopPlayback();
+                        break;
+                }
+            }
+        };
+
+        registerReceiver(mBroadcastReceiver, filter);
+    }
+
+    private Track getCurrentTrack() {
+        ArrayList<Track> trackList = MainActivity.mTrackArrayList;
+        for (int i = 0; i < trackList.size(); i++) {
+            Track currentTrack = trackList.get(i);
+            if (currentTrack.getId() == mCurrentTrackId) {
+                return currentTrack;
+            }
+        }
+        return null;
     }
 
     private void LoadLayoutItems() {
         Log.d(TAG, "LoadLayoutItems: Loading track name and cover");
-        mTvTrackName.setText(mtrackTitle);
+        mTvTrackName.setText(mTrackTitle);
+
+        mLoadProgressBar.setVisibility(View.VISIBLE);
 
         Picasso.get().load(mAlbumCover)
                 .fit()
@@ -103,7 +166,6 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
     }
 
     private void createMediaPlayer() {
-        // TODO: Set seekbar up to show playback progress and seek through songs.
         Log.d(TAG, "createMediaPlayer: creating media player instance");
         mMediaPlayer = new MediaPlayer();
         mMediaPlayer.setAudioAttributes(
@@ -130,22 +192,23 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
     public void onPrepared(final MediaPlayer mediaPlayer) {
         Log.d(TAG, "onPrepared: Media player in prepared state");
 
-        Toast toast = Toast.makeText(this, "MediaPlayer Prepared", Toast.LENGTH_LONG);
-        toast.show();
-        mMediaPlayerPrepped = true;
-        mFileDuration = mMediaPlayer.getDuration();
+        this.mPreparedMediaPlayer = mediaPlayer;
+        mFileDuration = mPreparedMediaPlayer.getDuration();
         getDurationTimer();
         mSeekBar.setMax(mFileDuration);
 
-        mediaPlayer.start();
+        mLoadProgressBar.setVisibility(View.GONE);
+        mPreparedMediaPlayer.start();
         mPauseNdPlay.setImageResource(R.drawable.ic_pause_media);
+
+        showMusicNotification();
 
         mHandler = new Handler();
         this.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if (mMediaPlayer != null) {
-                    int currentPosition = mMediaPlayer.getCurrentPosition();
+                if (mPreparedMediaPlayer != null) {
+                    int currentPosition = mPreparedMediaPlayer.getCurrentPosition();
                     mSeekBar.setProgress(currentPosition);
 
                     final long minutes = (currentPosition / 1000) / 60;
@@ -155,43 +218,62 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
                 mHandler.postDelayed(this, 1000);
             }
         });
+
         mPauseNdPlay.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (mediaPlayer.isPlaying()) {
-                    mediaPlayer.pause();
-                    mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
-                } else if (mMediaPlayer == null) {
-                    createMediaPlayer();
-                } else {
-                    mediaPlayer.start();
-                    mPauseNdPlay.setImageResource(R.drawable.ic_pause_media);
-                }
+                pauseOrPlayTrack();
             }
         });
 
         mLoop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (!mediaPlayer.isLooping()) {
-                    mediaPlayer.setLooping(true);
-                    mLoop.setFocusable(true);
-                } else {
-                    mediaPlayer.setLooping(false);
-                    mLoop.setSelected(false);
-                }
+                loopPlayback();
             }
         });
 
         mStopPlayback.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
-                mediaPlayer.stop();
+                stopPlayback();
             }
         });
     }
+
+    private void stopPlayback() {
+        mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
+        mPreparedMediaPlayer.stop();
+    }
+
+    private void loopPlayback() {
+        if (!mPreparedMediaPlayer.isLooping()) {
+            mPreparedMediaPlayer.setLooping(true);
+            mLoop.setImageResource(R.drawable.loop_one);
+        } else {
+            mPreparedMediaPlayer.setLooping(false);
+            mLoop.setImageResource(R.drawable.loop);
+        }
+    }
+
+    private void pauseOrPlayTrack() {
+        if (mPreparedMediaPlayer.isPlaying()) {
+            mPreparedMediaPlayer.pause();
+            mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
+        } else if (mPreparedMediaPlayer == null) {
+            createMediaPlayer();
+        } else {
+            mPreparedMediaPlayer.start();
+            mPauseNdPlay.setImageResource(R.drawable.ic_pause_media);
+        }
+    }
+
     // end of onPrepare method
+
+
+    private void showMusicNotification() {
+        MusicPlayingNotification.notify(this, mAlbumCover, mTrackTitle, mArtistName, mCurrentTrackId);
+    }
 
     public void getDurationTimer() {
         final long minutes = (mFileDuration / 1000) / 60;
@@ -215,8 +297,8 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
 
     @Override
     public void onBackPressed() {
-        mMediaPlayer.release();
-        mMediaPlayer = null;
+        mPreparedMediaPlayer.release();
+        mPreparedMediaPlayer = null;
         super.onBackPressed();
     }
 

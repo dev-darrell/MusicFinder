@@ -52,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
     //Used by retrofit
     private Call<TrackResponse> mcall;
     public static SearchRecentSuggestions msuggestions;
+    public static ArrayList<Track> mTrackArrayList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -123,9 +124,9 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, "onResponse: API data retrieved");
                 mPbLoading.setVisibility(View.INVISIBLE);
                 if (!response.body().getData().isEmpty()) {
-                    ArrayList<Track> tracks = (ArrayList<Track>) response.body().getData();
-                    recyclerView.setAdapter(new TrackAdapter(tracks));
-                    Log.d(TAG, "Number of songs retrieved: " + tracks.size());
+                    mTrackArrayList = (ArrayList<Track>) response.body().getData();
+                    recyclerView.setAdapter(new TrackAdapter(mTrackArrayList));
+                    Log.d(TAG, "Number of songs retrieved: " + mTrackArrayList.size());
                 } else {
                     mtvError.setText(R.string.track_not_in_database);
                 }

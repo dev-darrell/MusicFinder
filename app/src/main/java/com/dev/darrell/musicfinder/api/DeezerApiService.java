@@ -11,6 +11,6 @@ public interface DeezerApiService {
     @GET("/search")
     Call<TrackResponse> findTrack(@Query("q") String query);
 
-    @GET("/chart/0/tracks")
+    @GET("/chart/0/tracks&order=RANKING")
     Call<TrackResponse> fromTopCharts(@Query("limit") int limit);
 }

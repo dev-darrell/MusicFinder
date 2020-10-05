@@ -75,8 +75,9 @@ public class TrackAdapter extends RecyclerView.Adapter<TrackAdapter.ViewHolder> 
             itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
+                    int trackId = mTracks.get(getAdapterPosition()).getId();
                     Intent intent = new Intent(itemView.getContext(), TrackPlayer.class);
-                    intent.putExtra(TrackPlayer.TRACK_EXTRA, mTracks.get(getAdapterPosition()));
+                    intent.putExtra(TrackPlayer.TRACK_EXTRA, trackId);
                     itemView.getContext().startActivity(intent);
 
                 }

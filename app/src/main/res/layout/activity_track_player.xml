@@ -51,47 +51,6 @@
         android:orientation="horizontal"
         app:layout_constraintGuide_begin="293dp" />
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_pause_play"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:backgroundTint="@color/colorAccent"
-        android:clickable="true"
-        android:focusable="true"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/duration_seekbar"
-        app:srcCompat="@drawable/ic_play_media" />
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_loop"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="16dp"
-        android:clickable="true"
-        android:focusable="true"
-        app:backgroundTint="@color/colorAccent"
-        app:fabSize="mini"
-        app:layout_constraintEnd_toStartOf="@+id/fab_pause_play"
-        app:layout_constraintTop_toTopOf="@+id/fab_pause_play"
-        app:srcCompat="@drawable/ic_loop_media" />
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_stop_playback"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:layout_marginTop="8dp"
-        android:backgroundTint="@color/colorAccent"
-        android:clickable="true"
-        android:focusable="true"
-        app:fabSize="mini"
-        app:layout_constraintStart_toEndOf="@+id/fab_pause_play"
-        app:layout_constraintTop_toTopOf="@+id/fab_pause_play"
-        app:srcCompat="@drawable/ic_stop_media" />
-
     <TextView
         android:id="@+id/track_duration"
         android:layout_width="wrap_content"
@@ -109,5 +68,53 @@
         android:text="0:00"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="@+id/duration_seekbar" />
+
+    <ImageButton
+        android:id="@+id/btn_loop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:backgroundTint="#00FFFFFF"
+        android:tint="#F4AA4E"
+        app:layout_constraintBottom_toBottomOf="@+id/btn_play_pause"
+        app:layout_constraintEnd_toStartOf="@+id/btn_play_pause"
+        app:srcCompat="@drawable/loop" />
+
+    <ImageButton
+        android:id="@+id/btn_stop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:backgroundTint="#00FFFFFF"
+        android:scaleType="centerInside"
+        android:tint="#F4AA4E"
+        app:layout_constraintBottom_toBottomOf="@+id/btn_play_pause"
+        app:layout_constraintStart_toEndOf="@+id/btn_play_pause"
+        app:srcCompat="@drawable/ic_stop_media" />
+
+    <ImageButton
+        android:id="@+id/btn_play_pause"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:layout_marginTop="24dp"
+        android:backgroundTint="#00FFFFFF"
+        android:scaleType="fitXY"
+        android:tint="#F4AA4E"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/duration_seekbar"
+        app:srcCompat="@drawable/ic_play_media" />
+
+    <ProgressBar
+        android:id="@+id/load_progress_bar"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="145dp"
+        android:layout_height="86dp"
+        android:layout_marginTop="24dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.47"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/duration_seekbar" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
