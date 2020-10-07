@@ -7,17 +7,6 @@ import com.google.gson.annotations.SerializedName;
 
 public class Artist implements Parcelable {
 
-    public static final Creator<com.dev.darrell.musicfinder.model.Artist> CREATOR = new Creator<com.dev.darrell.musicfinder.model.Artist>() {
-        @Override
-        public com.dev.darrell.musicfinder.model.Artist createFromParcel(Parcel in) {
-            return new com.dev.darrell.musicfinder.model.Artist(in);
-        }
-
-        @Override
-        public com.dev.darrell.musicfinder.model.Artist[] newArray(int size) {
-            return new com.dev.darrell.musicfinder.model.Artist[size];
-        }
-    };
     @SerializedName("id")
     private Integer id;
     @SerializedName("name")
@@ -38,6 +27,18 @@ public class Artist implements Parcelable {
     private String tracklist;
     @SerializedName("type")
     private String type;
+
+    public static final Creator<Artist> CREATOR = new Creator<Artist>() {
+        @Override
+        public Artist createFromParcel(Parcel in) {
+            return new Artist(in);
+        }
+
+        @Override
+        public Artist[] newArray(int size) {
+            return new Artist[size];
+        }
+    };
 
     protected Artist(Parcel in) {
         if (in.readByte() == 0) {

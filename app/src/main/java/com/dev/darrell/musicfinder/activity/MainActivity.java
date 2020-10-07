@@ -54,6 +54,11 @@ public class MainActivity extends AppCompatActivity {
     public static SearchRecentSuggestions msuggestions;
     public static ArrayList<Track> mTrackArrayList;
 
+//    TODO: Add progressbar to show homepage load progress
+//    TODO: Check if internet is available and show a message/diagram if it isn't
+//    TODO: Add ability to refresh track list on homepage or show next section of track list
+//    TODO: Restructure activity to have separation of concerns implemented. [UI actions, API actions, data actions separated]
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

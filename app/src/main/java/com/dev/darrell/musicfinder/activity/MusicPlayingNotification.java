@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Icon;
 import android.os.Build;
 
 import androidx.core.app.NotificationCompat;
@@ -17,54 +18,63 @@ import com.dev.darrell.musicfinder.R;
 import com.squareup.picasso.Picasso;
 import com.squareup.picasso.Target;
 
+import static com.dev.darrell.musicfinder.activity.TrackPlayer.mMediaPlayer;
+
 public class MusicPlayingNotification {
     public static final String KEY_LOOP = "com.dev.darrell.musicfinder.activity.TrackPlayer.loopPlayback";
     public static final String KEY_PAUSE_PLAY = "com.dev.darrell.musicfinder.activity.TrackPlayer.startOrStopPlayback";
     public static final String KEY_STOP = "com.dev.darrell.musicfinder.activity.TrackPlayer.stopPlayback";
     private static final String NOTIFICATION_TAG = "MusicPlayback";
-    private static String channelID = "MusicPlaybackID";
-    private static String channelName = "MusicPlayback";
-    private static NotificationManager mNotificationManager;
+    private static final String CHANNEL_ID = "MusicPlaybackID";
+    private static final String CHANNEL_NAME = "Music Playback";
     private NotificationManager mManager;
+    private static NotificationCompat.Builder mBuilder;
+    private static int mPauseNdPlay = R.drawable.ic_pause_media;
+    private static int mLoop = R.drawable.loop;
+    private static PendingIntent mPausePlayPendingIntent;
+    private static PendingIntent mLoopPendingIntent;
+    private static Notification mNotification;
 
-    public static void notify(final Context context, final String trackCover, final String track,
-                              final String artist, final int trackId) {
+    public static void createNotification(final Context context, final String trackCover, final String track,
+                                          final String artist, final int trackId) {
+
+//        TODO: Add functionality to clear notification when stop is pressed or back pressed.
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel musicPlayback = new NotificationChannel(channelID, channelName, NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel musicPlayback = new NotificationChannel(CHANNEL_ID, CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_LOW);
             musicPlayback.enableVibration(false);
             musicPlayback.enableLights(false);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 musicPlayback.setAllowBubbles(false);
             }
 
-            mNotificationManager = (NotificationManager)
+            NotificationManager notificationManager = (NotificationManager)
                     context.getSystemService(Context.NOTIFICATION_SERVICE);
-            mNotificationManager.createNotificationChannel(musicPlayback);
+            notificationManager.createNotificationChannel(musicPlayback);
         }
 
         Intent trackPlayerIntent = new Intent(context, TrackPlayer.class);
         trackPlayerIntent.putExtra(TrackPlayer.TRACK_EXTRA, trackId);
 
         Intent loopIntent = new Intent(KEY_LOOP);
-        PendingIntent loopPendingIntent = PendingIntent.getBroadcast(context, 0, loopIntent, 0);
+        mLoopPendingIntent = PendingIntent.getBroadcast(context, 0, loopIntent, 0);
 
         Intent pausePlayIntent = new Intent(KEY_PAUSE_PLAY);
-        PendingIntent pausePlayPendingIntent = PendingIntent.getBroadcast(context, 0, pausePlayIntent, 0);
+        mPausePlayPendingIntent = PendingIntent.getBroadcast(context, 0, pausePlayIntent, 0);
 
         Intent stopIntent = new Intent(KEY_STOP);
         PendingIntent stopPendingIntent = PendingIntent.getBroadcast(context, 0, stopIntent, 0);
 
-
-        final NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelID)
+        mBuilder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setSmallIcon(R.drawable.sharp_headset_black_18dp)
                 .setContentTitle(track)
                 .setContentText(artist)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setAutoCancel(false)
-                .addAction(R.drawable.ic_loop_media, "Repeat", loopPendingIntent)
-                .addAction(R.drawable.ic_pause_media, "Pause", pausePlayPendingIntent)
+                .addAction(R.drawable.loop, "Repeat", mLoopPendingIntent)
+                .addAction(R.drawable.ic_pause_media, "Pause", mPausePlayPendingIntent)
                 .addAction(R.drawable.ic_stop_media, "Stop", stopPendingIntent)
                 .setStyle(new androidx.media.app.NotificationCompat.MediaStyle()
                         .setShowActionsInCompactView(0, 1)
@@ -74,17 +84,19 @@ public class MusicPlayingNotification {
                         PendingIntent.FLAG_UPDATE_CURRENT))
                 .setTicker(track + " by " + artist);
 
+//        Picasso loads track cover into large icon and starts the notification
         Picasso.get().load(trackCover).into(new Target() {
             @Override
             public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
-                builder.setLargeIcon(bitmap);
+                mBuilder.setLargeIcon(bitmap);
+                mNotification = mBuilder.build();
 
-                MusicPlayingNotification.notify(context, builder.build());
+                MusicPlayingNotification.notify(context, mNotification);
             }
 
             @Override
             public void onBitmapFailed(Exception e, Drawable errorDrawable) {
-                MusicPlayingNotification.notify(context, builder.build());
+                MusicPlayingNotification.notify(context, mNotification);
             }
 
             @Override
@@ -92,6 +104,39 @@ public class MusicPlayingNotification {
 
             }
         });
+    }
+
+    public static void updateActions(Context context) {
+        checkIfPlaying();
+        Notification.Action.Builder playActionBuilder = new Notification.Action.Builder(
+                Icon.createWithResource(context, mPauseNdPlay), "Play", mPausePlayPendingIntent);
+        mNotification.actions[1] = playActionBuilder.build();
+        notify(context, mNotification);
+    }
+
+    public static void updateLoopAction(Context context) {
+        checkIfLooping();
+        Notification.Action.Builder loopActionBuilder = new Notification.Action.Builder(
+                Icon.createWithResource(context, mLoop), "Loop", mLoopPendingIntent);
+
+        mNotification.actions[0] = loopActionBuilder.build();
+        notify(context, mNotification);
+    }
+
+    private static void checkIfLooping() {
+        if (mMediaPlayer.isLooping()) {
+            mLoop = R.drawable.loop_one;
+        } else if (!mMediaPlayer.isLooping()) {
+            mLoop = R.drawable.loop;
+        }
+    }
+
+    private static void checkIfPlaying() {
+        if (mMediaPlayer.isPlaying()) {
+            mPauseNdPlay = R.drawable.ic_pause_media;
+        } else if (!mMediaPlayer.isPlaying()) {
+            mPauseNdPlay = R.drawable.ic_play_media;
+        }
     }
 
     @TargetApi(Build.VERSION_CODES.ECLAIR)
