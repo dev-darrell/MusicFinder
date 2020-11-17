@@ -1,10 +1,9 @@
-package com.dev.darrell.musicfinder.activity;
+package com.dev.darrell.musicfinder.player;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,23 +16,36 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.dev.darrell.musicfinder.R;
+import com.dev.darrell.musicfinder.activity.MainActivity;
+import com.dev.darrell.musicfinder.activity.MusicPlayingNotification;
 import com.dev.darrell.musicfinder.model.Track;
 import com.squareup.picasso.Picasso;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Objects;
 
 import static com.dev.darrell.musicfinder.activity.MusicPlayingNotification.KEY_LOOP;
 import static com.dev.darrell.musicfinder.activity.MusicPlayingNotification.KEY_PAUSE_PLAY;
 import static com.dev.darrell.musicfinder.activity.MusicPlayingNotification.KEY_STOP;
+import static com.dev.darrell.musicfinder.player.PlayerService.MEDIA_DURATION;
+import static com.dev.darrell.musicfinder.player.PlayerService.MEDIA_PREPARED;
+import static com.dev.darrell.musicfinder.player.PlayerService.TRACK_AUDIO;
 
 public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPreparedListener,
         MediaPlayer.OnErrorListener, MediaPlayer.OnCompletionListener {
-    public static final String TRACK_EXTRA = "com.dev.darrell.musicfinder.activity.TrackPlayer";
+
+    public static final String TRACK_EXTRA = "com.dev.darrell.musicfinder.player.TrackPlayer";
+    public static final String KEY_PROGRESS_CHANGED =
+            "com.dev.darrell.musicfinder.player.playerService.seekbarProgress";
     private static final String TAG = "TrackPlayer";
+    public static final String SEEKBAR_PROGRESS = "seekbar_progress";
+    public static final String ALBUM_COVER = "albumCover";
+    public static final String TRACK_TITLE = "trackTitle";
+    public static final String ARTIST_NAME = "artistName";
+    public static final String TRACK_ID = "trackId";
     private String mTrackTitle;
     private String mArtistName;
     private String mAlbumCover;
@@ -53,12 +65,6 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
     public static MediaPlayer mMediaPlayer;
     private ProgressBar mLoadProgressBar;
     private BroadcastReceiver mBroadcastReceiver;
-
-    @Override
-    protected void onDestroy() {
-        unregisterReceiver(mBroadcastReceiver);
-        super.onDestroy();
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,28 +99,72 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
 
     private void registerBroadcastReceiver() {
         IntentFilter filter = new IntentFilter();
-        filter.addAction(KEY_LOOP);
-        filter.addAction(KEY_PAUSE_PLAY);
-        filter.addAction(KEY_STOP);
+        filter.addAction(MEDIA_PREPARED);
 
         mBroadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                switch (Objects.requireNonNull(intent.getAction())) {
-                    case KEY_LOOP:
-                        loopPlayback(mMediaPlayer);
-                        break;
-                    case KEY_PAUSE_PLAY:
-                        pauseOrPlayTrack(mMediaPlayer);
-                        break;
-                    case KEY_STOP:
-                        stopPlayback(mMediaPlayer);
-                        break;
+                if (Objects.equals(intent.getAction(), MEDIA_PREPARED)) {
+                    mediaPlayerPrepared(intent.getIntExtra(MEDIA_DURATION, -1));
                 }
             }
         };
 
-        registerReceiver(mBroadcastReceiver, filter);
+        LocalBroadcastManager.getInstance(this).registerReceiver(mBroadcastReceiver, filter);
+    }
+
+    private void mediaPlayerPrepared(int trackDuration) {
+        mLoadProgressBar.setVisibility(View.GONE);
+        if (trackDuration != -1) {
+            mFileDuration = trackDuration;
+        }
+        getDurationTimer();
+        mSeekBar.setMax(mFileDuration);
+
+        mPauseNdPlay.setImageResource(R.drawable.ic_pause_media);
+
+//      Display notification in status bar
+        showMusicNotification();
+
+//        mHandler = new Handler();
+//        this.runOnUiThread(new Runnable() {
+//            @Override
+//            public void run() {
+//                if (mMediaPlayer != null) {
+//                    int currentPosition = mediaPlayer.getCurrentPosition();
+//                    mSeekBar.setProgress(currentPosition);
+//
+//                    final long minutes = (currentPosition / 1000) / 60;
+//                    final int seconds = ((currentPosition / 1000) % 60);
+//                    mCurrentPosition.setText(minutes + ":" + seconds);
+//                }
+//                mHandler.postDelayed(this, 1000);
+//            }
+//        });
+
+
+        mPauseNdPlay.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                pauseOrPlayTrack();
+            }
+        });
+
+        mLoop.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                loopPlayback();
+            }
+        });
+
+        mStopPlayback.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                stopPlayback();
+            }
+        });
+
+
     }
 
     private Track getCurrentTrack() {
@@ -141,11 +191,16 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
                 .into(mIvAlbumArt);
 
         createMediaPlayer();
+
+
         mSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (mMediaPlayer != null && fromUser) {
-                    mMediaPlayer.seekTo(progress);
+                    Intent intent = new Intent(KEY_PROGRESS_CHANGED);
+                    intent.putExtra(SEEKBAR_PROGRESS, progress);
+                    LocalBroadcastManager.getInstance(TrackPlayer.this).sendBroadcast(intent);
+
                     seekBar.setProgress(progress);
                 }
             }
@@ -165,113 +220,87 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
     }
 
     private void createMediaPlayer() {
-        Log.d(TAG, "createMediaPlayer: creating media player instance");
+        Intent serviceIntent = new Intent(this, PlayerService.class);
+        serviceIntent.putExtra(TRACK_AUDIO, mTrackAudio);
+        serviceIntent.putExtra(ALBUM_COVER, mAlbumCover);
+        serviceIntent.putExtra(TRACK_TITLE, mTrackTitle);
+        serviceIntent.putExtra(ARTIST_NAME, mArtistName);
+        serviceIntent.putExtra(TRACK_ID, mCurrentTrackId);
+        startService(serviceIntent);
 
-        mMediaPlayer = new MediaPlayer();
-        mMediaPlayer.setAudioAttributes(
-                new AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .build()
-        );
-        try {
-            mMediaPlayer.setDataSource(mTrackAudio);
-        } catch (IOException e) {
-            Log.d(TAG, "createMediaPlayer: Data source error =" + e.toString());
-            e.printStackTrace();
-        }
-
-        mMediaPlayer.setOnErrorListener(this);
-        mMediaPlayer.setOnPreparedListener(this);
-        mMediaPlayer.setOnCompletionListener(this);
-
-        mMediaPlayer.prepareAsync();
+        /* Moved to service
+         */
     }
 
     @Override
     public void onPrepared(final MediaPlayer mediaPlayer) {
         Log.d(TAG, "onPrepared: Media player in prepared state");
 
-        mFileDuration = mediaPlayer.getDuration();
-        getDurationTimer();
-        mSeekBar.setMax(mFileDuration);
+//        mFileDuration = mediaPlayer.getDuration();
+//        getDurationTimer();
+//        mSeekBar.setMax(mFileDuration);
 
-        mLoadProgressBar.setVisibility(View.GONE);
-        mediaPlayer.start();
-        mPauseNdPlay.setImageResource(R.drawable.ic_pause_media);
+//        mLoadProgressBar.setVisibility(View.GONE);
 
-//      Display notification in status bar
-        showMusicNotification();
+//        mediaPlayer.start();
+//        mPauseNdPlay.setImageResource(R.drawable.ic_pause_media);
 
-        mHandler = new Handler();
-        this.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (mMediaPlayer != null) {
-                    int currentPosition = mediaPlayer.getCurrentPosition();
-                    mSeekBar.setProgress(currentPosition);
+////      Display notification in status bar
+//        showMusicNotification();
 
-                    final long minutes = (currentPosition / 1000) / 60;
-                    final int seconds = ((currentPosition / 1000) % 60);
-                    mCurrentPosition.setText(minutes + ":" + seconds);
-                }
-                mHandler.postDelayed(this, 1000);
-            }
-        });
+//        mHandler = new Handler();
+//        this.runOnUiThread(new Runnable() {
+//            @Override
+//            public void run() {
+//                if (mMediaPlayer != null) {
+//                    int currentPosition = mediaPlayer.getCurrentPosition();
+//                    mSeekBar.setProgress(currentPosition);
+//
+//                    final long minutes = (currentPosition / 1000) / 60;
+//                    final int seconds = ((currentPosition / 1000) % 60);
+//                    mCurrentPosition.setText(minutes + ":" + seconds);
+//                }
+//                mHandler.postDelayed(this, 1000);
+//            }
+//        });
 
-        mPauseNdPlay.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                pauseOrPlayTrack(mediaPlayer);
-            }
-        });
-
-        mLoop.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                loopPlayback(mediaPlayer);
-            }
-        });
-
-        mStopPlayback.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                stopPlayback(mediaPlayer);
-            }
-        });
+//        mPauseNdPlay.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                pauseOrPlayTrack(mediaPlayer);
+//            }
+//        });
+//
+//        mLoop.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                loopPlayback(mediaPlayer);
+//            }
+//        });
+//
+//        mStopPlayback.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                stopPlayback(mediaPlayer);
+//            }
+//        });
     }
 //  end of onPrepare method
 
-    private void stopPlayback(MediaPlayer mediaPlayer) {
-        mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
-        mediaPlayer.stop();
+    private void stopPlayback() {
+        Intent intent = new Intent(KEY_STOP);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
-    private void loopPlayback(MediaPlayer mediaPlayer) {
-        if (!mediaPlayer.isLooping()) {
-            mediaPlayer.setLooping(true);
-            mLoop.setImageResource(R.drawable.loop_one);
-            MusicPlayingNotification.updateLoopAction(this);
-        } else {
-            mediaPlayer.setLooping(false);
-            mLoop.setImageResource(R.drawable.loop);
-            MusicPlayingNotification.updateLoopAction(this);
-        }
+    private void loopPlayback() {
+        Intent intent = new Intent(KEY_LOOP);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
-    private void pauseOrPlayTrack(MediaPlayer mediaPlayer) {
-        if (mediaPlayer.isPlaying()) {
-            mediaPlayer.pause();
-            mPauseNdPlay.setImageResource(R.drawable.ic_play_media);
-        } else if (mMediaPlayer == null) {
-            createMediaPlayer();
-        } else {
-            mediaPlayer.start();
-            mPauseNdPlay.setImageResource(R.drawable.ic_pause_media);
-        }
-        MusicPlayingNotification.updateActions(this);
+    private void pauseOrPlayTrack() {
+        Intent intent = new Intent(KEY_PAUSE_PLAY);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
-
 
 
     private void showMusicNotification() {
@@ -301,8 +330,6 @@ public class TrackPlayer extends AppCompatActivity implements MediaPlayer.OnPrep
 
     @Override
     public void onBackPressed() {
-        mMediaPlayer.release();
-        mMediaPlayer = null;
         super.onBackPressed();
     }
 

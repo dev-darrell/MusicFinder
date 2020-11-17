@@ -13,8 +13,8 @@ import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.dev.darrell.musicfinder.R;
-import com.dev.darrell.musicfinder.activity.TrackPlayer;
 import com.dev.darrell.musicfinder.model.Track;
+import com.dev.darrell.musicfinder.player.TrackPlayer;
 import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;

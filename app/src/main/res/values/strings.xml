@@ -10,4 +10,5 @@
     <string name="img_album_art">Album art</string>
     <string name="error_getting_data">An error occurred while retrieving data.</string>
     <string name="track_not_in_database">Sorry, this song is not in our database</string>
+    <string name="service_name">Player Service</string>
 </resources>

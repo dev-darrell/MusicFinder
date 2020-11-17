@@ -3,6 +3,7 @@
     package="com.dev.darrell.musicfinder">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:allowBackup="true"
@@ -12,8 +13,9 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
-            android:name=".activity.TrackPlayer"
+            android:name=".player.TrackPlayer"
             android:launchMode="singleTask" />
+
         <activity android:name=".activity.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -28,7 +30,12 @@
 
         <provider
             android:name=".activity.MySearchSuggestionProvider"
-            android:authorities="com.dev.darrell.musicfinder.activity.MySearchSuggestionProvider" />
+            android:authorities="com.dev.darrell.musicfinder.activity.MySearchSuggestionProvider"
+            android:exported="false" />
+
+        <service
+            android:name=".player.PlayerService"
+            android:label="@string/service_name" />
     </application>
 
 </manifest>
